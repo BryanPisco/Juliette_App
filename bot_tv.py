@@ -36,14 +36,37 @@ def enviar_bienvenida(message):
 def play_video(message):
     if message.chat.id != MI_CHAT_ID: return
     
-    url = message.text.split(' ')[1] if len(message.text.split(' ')) > 1 else None
-    if url:
-        bot.reply_to(message, "Reproduciendo... 🎬")
-        subprocess.run(["pkill", "mpv"]) # Cierra el video anterior si hay uno
-        # Lanzamos mpv a pantalla completa
-        subprocess.Popen(f"DISPLAY=:0 mpv --fs --ytdl-format='bestvideo[height<=1080]+bestaudio/best' {url}", shell=True)
+    # Separamos el comando del link y limpiamos espacios
+    partes = message.text.split(' ')
+    if len(partes) > 1:
+        url = partes[1].strip()
+        bot.reply_to(message, "Procesando enlace... 📺")
+        
+        # Detenemos cualquier video previo
+        subprocess.run(["pkill", "mpv"])
+        
+        # Ruta absoluta al yt-dlp de tu entorno virtual
+        ruta_ytdlp = os.path.expanduser("~/control_tv/venv/bin/yt-dlp")
+        
+        # Comando mejorado:
+        # --fs: pantalla completa
+        # --force-window: asegura que se abra la ventana aunque tarde en cargar
+        # --ytdl-path: le dice exactamente donde está el motor de YouTube
+        comando = [
+            "mpv", 
+            "--fs", 
+            "--force-window",
+            f"--ytdl-path={ruta_ytdlp}", 
+            url
+        ]
+        
+        try:
+            # Usamos env={"DISPLAY": ":0"} para que sepa en qué pantalla abrirse
+            subprocess.Popen(comando, env={**os.environ, "DISPLAY": ":0"})
+        except Exception as e:
+            bot.reply_to(message, f"Error al lanzar el reproductor: {e}")
     else:
-        bot.reply_to(message, "Envíame el link así: /play https://youtube.com/...")
+        bot.reply_to(message, "Uso: /play [link]")
 
 @bot.message_handler(commands=['stop'])
 def stop_video(message):
