@@ -45,6 +45,35 @@ def enviar_bienvenida(message):
     if message.chat.id == MI_CHAT_ID:
         bot.reply_to(message, "¡TV de mi hija lista! 📺\nComandos:\n/bloquear\n/desbloquear")
 
+@bot.message_handler(commands=['play'])
+def play_video(message):
+    if message.chat.id != MI_CHAT_ID: return
+    
+    partes = message.text.split(' ')
+    if len(partes) > 1:
+        url = partes[1].strip()
+        bot.reply_to(message, "Abriendo en Brave... 🌐")
+        
+        # Comando para Brave:
+        # --new-window: Solo si no hay ninguna, pero si hay una abierta, Brave por defecto usa la misma sesión.
+        # --start-fullscreen: Para que ocupe toda la pantalla de una vez.
+        comando = ["brave-browser", "--start-fullscreen", url]
+        
+        try:
+            # Brave gestiona internamente abrir en la misma ventana si ya existe una sesión
+            subprocess.Popen(comando, env={**os.environ, "DISPLAY": ":0"})
+        except Exception as e:
+            bot.reply_to(message, f"Error al abrir Brave: {e}")
+    else:
+        bot.reply_to(message, "Uso: /play [link]")
+
+@bot.message_handler(commands=['stop'])
+def stop_video(message):
+    if message.chat.id == MI_CHAT_ID:
+        # Cerramos todas las instancias de Brave
+        subprocess.run(["pkill", "brave"])
+        bot.reply_to(message, "Brave cerrado. ⏹️")
+
 @bot.message_handler(commands=['bloquear'])
 def bloquear(message):
     if message.chat.id == MI_CHAT_ID:
