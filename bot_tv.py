@@ -6,89 +6,62 @@ import os
 # === CONFIGURACIÓN ===
 TOKEN = '8631518314:AAFG6jhIbwHt_3XeU_wh8Wv0ry8m0TzNtP8'
 MI_CHAT_ID = 7124486834
-NOMBRE_TECLADO = "AT Translated Set 2 keyboard"
+# Nombres exactos obtenidos de tu xinput list
+DISPOSITIVOS_OBJETIVO = [
+    "AT Translated Set 2 keyboard",
+    "DELL0978:00 04F3:30C3 Touchpad"
+]
 
 bot = telebot.TeleBot(TOKEN)
 
-def ejecutar_comando_xinput(accion):
-    """Accion puede ser 'enable' o 'disable'"""
+def gestionar_perifericos(accion):
+    """
+    Busca los IDs de los dispositivos específicos y aplica 'enable' o 'disable'.
+    Retorna la cantidad de dispositivos procesados con éxito.
+    """
+    procesados = 0
     try:
-        # Buscamos el ID dinámicamente cada vez por si cambia
+        # Obtenemos la lista de xinput
         salida = subprocess.check_output(['xinput', 'list'], env={'DISPLAY': ':0'}, text=True)
-        for linea in salida.split('\n'):
-            if NOMBRE_TECLADO in linea:
-                match = re.search(r'id=(\d+)', linea)
-                if match:
-                    id_dispositivo = match.group(1)
-                    subprocess.run(['xinput', accion, id_dispositivo], env={'DISPLAY': ':0'})
-                    return True
-        return False
+        
+        for nombre in DISPOSITIVOS_OBJETIVO:
+            for linea in salida.split('\n'):
+                # Buscamos la coincidencia exacta del nombre en la línea
+                if nombre in linea:
+                    match = re.search(r'id=(\d+)', linea)
+                    if match:
+                        id_dev = match.group(1)
+                        # Ejecutamos la acción (disable/enable)
+                        subprocess.run(['xinput', accion, id_dev], env={'DISPLAY': ':0'})
+                        procesados += 1
+                        break # Pasamos al siguiente dispositivo de nuestra lista
+        return procesados
     except Exception as e:
-        print(f"Error en xinput: {e}")
-        return False
+        print(f"Error en gestionar_perifericos: {e}")
+        return 0
 
 @bot.message_handler(commands=['start'])
 def enviar_bienvenida(message):
     if message.chat.id == MI_CHAT_ID:
-        bot.reply_to(message, "¡TV de mi hija lista! 📺\nComandos:\n/play [url]\n/stop\n/bloquear\n/desbloquear")
-
-@bot.message_handler(commands=['play'])
-def play_video(message):
-    if message.chat.id != MI_CHAT_ID: return
-    
-    # Separamos el comando del link y limpiamos espacios
-    partes = message.text.split(' ')
-    if len(partes) > 1:
-        url = partes[1].strip()
-        bot.reply_to(message, "Procesando enlace... 📺")
-        
-        # Detenemos cualquier video previo
-        subprocess.run(["pkill", "mpv"])
-        
-        # Ruta absoluta al yt-dlp de tu entorno virtual
-        ruta_ytdlp = os.path.expanduser("~/control_tv/venv/bin/yt-dlp")
-        
-        # Comando mejorado:
-        # --fs: pantalla completa
-        # --force-window: asegura que se abra la ventana aunque tarde en cargar
-        # --ytdl-path: le dice exactamente donde está el motor de YouTube
-        comando = [
-            "mpv", 
-            "--fs", 
-            "--force-window",
-            f"--ytdl-path={ruta_ytdlp}", 
-            url
-        ]
-        
-        try:
-            # Usamos env={"DISPLAY": ":0"} para que sepa en qué pantalla abrirse
-            subprocess.Popen(comando, env={**os.environ, "DISPLAY": ":0"})
-        except Exception as e:
-            bot.reply_to(message, f"Error al lanzar el reproductor: {e}")
-    else:
-        bot.reply_to(message, "Uso: /play [link]")
-
-@bot.message_handler(commands=['stop'])
-def stop_video(message):
-    if message.chat.id == MI_CHAT_ID:
-        subprocess.run(["pkill", "mpv"])
-        bot.reply_to(message, "Video detenido. ⏹️")
+        bot.reply_to(message, "¡TV de mi hija lista! 📺\nComandos:\n/bloquear\n/desbloquear")
 
 @bot.message_handler(commands=['bloquear'])
 def bloquear(message):
     if message.chat.id == MI_CHAT_ID:
-        if ejecutar_comando_xinput('disable'):
-            bot.reply_to(message, "Teclado BLOQUEADO 🔒")
+        exitos = gestionar_perifericos('disable')
+        if exitos > 0:
+            bot.reply_to(message, f"🔒 Bloqueo activo ({exitos}/{len(DISPOSITIVOS_OBJETIVO)} disp.)\nTeclado y Touchpad desactivados.")
         else:
-            bot.reply_to(message, "No se encontró el teclado.")
+            bot.reply_to(message, "⚠️ No se pudo bloquear ningún dispositivo. Revisa la terminal de la laptop.")
 
 @bot.message_handler(commands=['desbloquear'])
 def desbloquear(message):
     if message.chat.id == MI_CHAT_ID:
-        if ejecutar_comando_xinput('enable'):
-            bot.reply_to(message, "Teclado DESBLOQUEADO 🔓")
+        exitos = gestionar_perifericos('enable')
+        if exitos > 0:
+            bot.reply_to(message, "🔓 Teclado y Touchpad reactivados.")
         else:
-            bot.reply_to(message, "No se encontró el teclado.")
+            bot.reply_to(message, "⚠️ No se pudo reactivar los dispositivos.")
 
 print("Bot iniciado y esperando órdenes...")
-bot.infinity_polling()
+bot.infinity_polling(timeout=10, long_polling_timeout=5)
