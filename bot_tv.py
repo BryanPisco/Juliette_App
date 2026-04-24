@@ -43,7 +43,7 @@ def gestionar_perifericos(accion):
 @bot.message_handler(commands=['start'])
 def enviar_bienvenida(message):
     if message.chat.id == MI_CHAT_ID:
-        bot.reply_to(message, "¡TV de mi hija lista! 📺\nComandos:\n/bloquear\n/desbloquear")
+        bot.reply_to(message, "¡TV Control Brave Activo! 📺\n\n/play [url] - Abrir video\n/stop - Cerrar Brave\n/bloquear - Off Teclado\n/desbloquear - On Teclado")
 
 @bot.message_handler(commands=['play'])
 def play_video(message):
@@ -52,21 +52,29 @@ def play_video(message):
     partes = message.text.split(' ')
     if len(partes) > 1:
         url = partes[1].strip()
-        bot.reply_to(message, "Abriendo en Brave... 🌐")
+        bot.reply_to(message, "Cambiando video... 📺")
         
-        # Comando para Brave:
-        # --new-window: Solo si no hay ninguna, pero si hay una abierta, Brave por defecto usa la misma sesión.
-        # --start-fullscreen: Para que ocupe toda la pantalla de una vez.
-        comando = ["brave-browser", "--start-fullscreen", url]
+        # 1. Matamos cualquier instancia previa de Brave para limpiar la pantalla
+        # Esto evita que se acumulen ventanas y sonidos.
+        subprocess.run(["pkill", "brave"])
+        
+        # 2. Comando Modo App:
+        # --app: Abre la URL en una ventana limpia sin interfaz de navegador.
+        # --start-fullscreen: Fuerza que esa ventana ocupe toda la pantalla.
+        # --autoplay-policy=no-user-gesture-required: Intenta forzar el inicio automático.
+        comando = [
+            "brave-browser", 
+            f"--app={url}", 
+            "--start-fullscreen", 
+            "--autoplay-policy=no-user-gesture-required"
+        ]
         
         try:
-            # Brave gestiona internamente abrir en la misma ventana si ya existe una sesión
             subprocess.Popen(comando, env={**os.environ, "DISPLAY": ":0"})
         except Exception as e:
-            bot.reply_to(message, f"Error al abrir Brave: {e}")
+            bot.reply_to(message, f"Error: {e}")
     else:
         bot.reply_to(message, "Uso: /play [link]")
-
 @bot.message_handler(commands=['stop'])
 def stop_video(message):
     if message.chat.id == MI_CHAT_ID:
