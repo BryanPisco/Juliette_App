@@ -45,7 +45,7 @@ def es_autorizado(id_usuario):
 
 @bot.message_handler(commands=['start'])
 def enviar_bienvenida(message):
-    if message.chat.id == MI_CHAT_ID:
+    if es_autorizado(message.chat.id):
         bot.reply_to(message, "¡TV Control Brave Activo! 📺\n\n/play [url] - Abrir video\n/stop - Cerrar Brave\n/bloquear - Off Teclado\n/desbloquear - On Teclado")
 
 @bot.message_handler(commands=['play'])
