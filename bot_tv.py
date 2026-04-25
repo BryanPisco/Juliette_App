@@ -5,7 +5,7 @@ import os
 
 # === CONFIGURACIÓN ===
 TOKEN = '8631518314:AAFG6jhIbwHt_3XeU_wh8Wv0ry8m0TzNtP8'
-MI_CHAT_ID = 7124486834
+USUARIOS_AUTORIZADOS = [7124486834,5251922654]
 # Nombres exactos obtenidos de tu xinput list
 DISPOSITIVOS_OBJETIVO = [
     "AT Translated Set 2 keyboard",
@@ -40,6 +40,9 @@ def gestionar_perifericos(accion):
         print(f"Error en gestionar_perifericos: {e}")
         return 0
 
+def es_autorizado(id_usuario):
+    return id_usuario in USUARIOS_AUTORIZADOS
+
 @bot.message_handler(commands=['start'])
 def enviar_bienvenida(message):
     if message.chat.id == MI_CHAT_ID:
@@ -47,7 +50,7 @@ def enviar_bienvenida(message):
 
 @bot.message_handler(commands=['play'])
 def play_video(message):
-    if message.chat.id != MI_CHAT_ID: return
+    if not es_autorizado(message.chat.id): return
     
     partes = message.text.split(' ')
     if len(partes) > 1:
@@ -77,14 +80,14 @@ def play_video(message):
         bot.reply_to(message, "Uso: /play [link]")
 @bot.message_handler(commands=['stop'])
 def stop_video(message):
-    if message.chat.id == MI_CHAT_ID:
+    if es_autorizado(message.chat.id):
         # Cerramos todas las instancias de Brave
         subprocess.run(["pkill", "brave"])
         bot.reply_to(message, "Brave cerrado. ⏹️")
 
 @bot.message_handler(commands=['bloquear'])
 def bloquear(message):
-    if message.chat.id == MI_CHAT_ID:
+    if es_autorizado(message.chat.id):
         exitos = gestionar_perifericos('disable')
         if exitos > 0:
             bot.reply_to(message, f"🔒 Bloqueo activo ({exitos}/{len(DISPOSITIVOS_OBJETIVO)} disp.)\nTeclado y Touchpad desactivados.")
@@ -93,7 +96,7 @@ def bloquear(message):
 
 @bot.message_handler(commands=['desbloquear'])
 def desbloquear(message):
-    if message.chat.id == MI_CHAT_ID:
+    if es_autorizado(message.chat.id):
         exitos = gestionar_perifericos('enable')
         if exitos > 0:
             bot.reply_to(message, "🔓 Teclado y Touchpad reactivados.")
